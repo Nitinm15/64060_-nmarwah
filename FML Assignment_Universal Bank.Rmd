@@ -1,0 +1,116 @@
+---
+title: "FML Assignment_Universal Bank"
+author: "Nitin Marwah"
+date: "2024-02-23"
+output: html_document
+---
+Problem Statement-:
+The Universal Bank, a dynamic and expanding financial institution, faces a strategic challenge in maximizing its loan business potential. While the majority of its customer base consists of liability customers, the bank's asset customer segment remains relatively small. To fuel growth, the bank aims to capitalize on its existing customer relationships and convert liability customers into personal loan clients. Building on the success of a previous campaign, which achieved a notable 9% conversion rate, the bank's retail marketing department seeks to refine targeting strategies for future initiatives. Leveraging machine learning techniques, specifically k-nearest neighbors (k-NN), the bank intends to predict customer acceptance of loan offers. The dataset, UniversalBank.csv, encompasses demographic information, banking associations, and responses to past loan campaigns for 5000 customers. With only 9.6% of customers accepting previous loan offers, the bank faces the challenge of effectively partitioning the data into training (60%) and validation (40%) sets to develop robust predictive models.
+```{r}
+library(dplyr)
+library(e1071)
+library(lattice)
+library(caret)
+library(class)
+library(ggplot2)
+universal_bank <- read.csv("/Applications/UniversalBank.csv")
+summary(universal_bank)
+#Drop-ID and ZIP.Code
+universal_bank <- universal_bank[,-c(1,5)]
+```
+```{r}
+#Convert categorical variables into dummy variables.
+#Only Education is to be converted
+universal_bank$Education <- as.factor(universal_bank$Education)
+groups <- dummyVars(~., data = universal_bank) 
+universal_dm <- as.data.frame(predict(groups,universal_bank))
+```
+```{r}
+#split the data into training (60%) and validation (40%) sets
+set.seed(1) 
+train.index <- sample(row.names(universal_dm), 0.6*dim(universal_dm)[1])
+valid.index <- setdiff(row.names(universal_dm), train.index)
+train.df <- universal_dm[train.index,]
+valid.df <- universal_dm[valid.index,]
+#Normalize the data
+train.norm.df <- train.df[,-10] 
+valid.norm.df <- valid.df[,-10]
+norm.values <- preProcess(train.df[, -10], method=c("center", "scale"))
+train.norm.df <- predict(norm.values, train.df[, -10])
+valid.norm.df <- predict(norm.values, valid.df[, -10])
+```
+Question 1 - Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1, and Credit Card = 1. Perform a k-NN classification with all predictors except ID and ZIP code using k = 1. Remember to transform categorical predictors with more than two categories into dummy variables first. Specify the success class as 1 (loan acceptance), and use the default cutoff value of 0.5. How would this customer be classified?
+```{r}
+#Let’s create a new sample
+new_customer <- data.frame(Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education.1 = 0,Education.2 = 1, Education.3 = 0, Mortgage = 0,Securities.Account = 0, CD.Account = 0, Online = 1, CreditCard = 1)
+#Normalizing the new customer(sample)
+new.cust.norm <- new_customer
+new.cust.norm <- predict(norm.values, new.cust.norm)
+#Using K-NN to Predict
+knn_pred <- class::knn(train = train.norm.df, test = new.cust.norm, cl = train.df$Personal.Loan, k = 1)
+knn_pred
+```
+Question 2 - What is a choice of k that balances between overfitting and ignoring the predictor information?
+```{r}
+#To calculate the accuracy for each value of k
+#To set the range of k values to consider  
+accuracy.df <- data.frame(k = seq(1, 20, 1), overallaccuracy = rep(0, 20))
+for(i in 1:20)
+{knn.pred <- class::knn(train = train.norm.df,
+test = valid.norm.df,
+cl = train.df$Personal.Loan, k = i)
+accuracy.df[i, 2] <- confusionMatrix(knn.pred,as.factor(valid.df$Personal.Loan),positive = "1")$overall[1]
+}
+which(accuracy.df[,2] == max(accuracy.df[,2]))
+plot(accuracy.df$k,accuracy.df$overallaccuracy, main = "Accuracy Vs K", xlab = "k", ylab = "accuracy")
+```
+Question 3 - Show the confusion matrix for the validation data that results from using the best k.
+```{r}
+knn.pred <- class::knn(train = train.norm.df,
+test = valid.norm.df,
+cl = train.df$Personal.Loan, k = 3)
+confusionMatrix(knn.pred,as.factor(valid.df$Personal.Loan),positive = "1")$table
+```
+Question 4 - Consider the following customer: Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1 and Credit Card = 1. Classify the customer using the best k.
+```{r}
+#Loading new customer profile
+new_customer2<-data.frame( Age = 40, Experience = 10, Income = 84, family =2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities.Account = 0, CDAccount = 0, Online = 1, CreditCard = 1)
+#Using K-NN to Predict
+knn_pred <- class::knn(train = train.norm.df, test = new.cust.norm, cl = train.df$Personal.Loan, k = 3)
+knn_pred
+# As result below exhibit- 0, Customer is classified as Loan Rejected
+```
+Question 5 - Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Apply the k-NN method with the k chosen above. Compare the confusion matrix of the test set with that of the training and validation sets. Comment on the differences and their reason.
+Spilitting Data- 50% (training) 30% (Validation) 20% (Testing)
+```{r}
+set.seed(1)
+Train_Index1 <- sample(row.names(universal_dm), 0.5*dim(universal_dm)[1])
+Val_Index1 <- sample(setdiff(row.names(universal_dm),Train_Index1),0.3*dim(universal_dm)[1])
+Test_Index1 <-setdiff(row.names(universal_dm),union(Train_Index1,Val_Index1))
+Train_Data <- universal_dm[Train_Index1,]
+Validation_Data <- universal_dm[Val_Index1,]
+Test_Data <- universal_dm[Test_Index1,]
+#Normalize the data
+train.norm.df1 <- Train_Data[,-10]
+valid.norm.df1 <- Validation_Data[,-10]
+Test.norm.df1 <-Test_Data[,-10]
+norm.values1 <- preProcess(Train_Data[, -10], method=c("center", "scale"))
+train.norm.df1 <- predict(norm.values1, Train_Data[,-10])
+valid.norm.df1 <- predict(norm.values1, Validation_Data[,-10])
+Test.norm.df1 <-predict(norm.values1,Test_Data[,-10])
+#Using K-NN to Predict
+validation_knn = class::knn(train = train.norm.df1, test = valid.norm.df1, cl = Train_Data$Personal.Loan, k = 3)
+test_knn = class::knn(train = train.norm.df1, test = Test.norm.df1, cl = Train_Data$Personal.Loan, k = 3)
+Train_knn = class::knn(train = train.norm.df1, test = train.norm.df1, cl = Train_Data$Personal.Loan, k = 3)
+#Performing Validation confusion Matrix
+validation_confusion_matrix = confusionMatrix(validation_knn, as.factor(Validation_Data$Personal.Loan), positive = "1")$table
+validation_confusion_matrix
+#Performing Test confusion Matrix
+test_confusion_matrix = confusionMatrix(test_knn, as.factor(Test_Data$Personal.Loan), positive = "1")$table
+test_confusion_matrix
+#Performing Train confusion Matrix
+Training_confusion_matrix = confusionMatrix(Train_knn, as.factor(Train_Data$Personal.Loan), positive = "1")$table
+Training_confusion_matrix
+
+```
+
