@@ -1,0 +1,215 @@
+---
+title: "Assignment 4 FML"
+author: "Nitin Marwah"
+date: "2024-03-17"
+output: html_document
+---
+Problem Statement
+
+An equities analyst is studying the pharmaceutical industry and would like your help in exploring and understanding the financial data collected by her firm. Her main objective is to understand the structure of the pharmaceutical industry using some basic financial measures. Financial data gathered on 21 firms in the pharmaceutical industry are available in the file Pharmaceuticals.csv. 
+
+```{r}
+library(tidyr)
+library(readr)
+library(knitr)
+library(dplyr)
+library(stats)
+library(dbscan)
+library(ISLR)
+library(caret)
+library(cluster)
+library(factoextra)
+library(tidyverse)
+df <- read.csv("/Applications/Pharmaceuticals.csv")
+summary (df)
+```
+Question 1 A-: Use only the numerical variables (1 to 9) to cluster the 21 firms. Justify the various choices made in conducting the cluster analysis, such as weights for different variables, the specific clustering algorithm(s) used, the number of clusters formed, and so on.
+
+```{r}
+#Removing N/A values
+df <- na.omit(df)
+#Excluding all variables that are not numeric
+df.2 <- df[ , c(3:11)]
+df.2
+```
+
+```{r}
+#Normalizing the dataset
+normal = preProcess(df.2 , method = c("center", "scale"))
+normal.2 = predict(normal , df.2)
+normal.2
+```
+
+```{r}
+#Determining the optimal value of k through the elbow and silhouette methods.
+fviz_nbclust(normal.2 , kmeans , method = "wss") + labs(subtitle = "elbow method")
+```
+
+```{r}
+fviz_nbclust(normal.2 , kmeans , method = "silhouette") + labs(subtitle = "silhouette method")
+```
+
+The chart indicates that choosing 5 as the elbow point provides the best value for k. As we increase k further, the within-cluster sum of squares (WSS) continues to decrease, but we need to balance between overfitting (fitting both noise and signal) and bias in our model. The elbow point at k = 5 strikes this balance well because although WSS still decreases beyond this point, it does so at a slower rate. So, k = 5 offers the best compromise between bias and overfitting. Additionally, observing the high values on the Silhouette Width (Y Axis) reinforces that 5 is the optimal number of clusters. This confirms that K = 5 is the right choice.
+
+```{r}
+#Creating clusters and visualizing them using the k-means algorithm.
+set.seed(900)
+kcluster <- kmeans(normal.2 , centers = 5 )
+kcluster$centers
+kcluster$size
+```
+```{r}
+fviz_cluster(kcluster , data = normal.2)
+```
+
+```{r}
+#Creating clusters and visualizing them using the DBSCAN algorithm.
+dbscan::kNNdistplot(normal.2 , k=2)
+abline(h = 2.5)
+```
+
+```{r}
+db <- dbscan::dbscan(normal.2 , eps = 2.5 , minPts = 2)
+fviz_cluster(db , normal.2)
+```
+```{r}
+#Creating clusters and visualizing them using the Hierarchical algorithm.
+single <- agnes(normal.2 , method = "single")
+complete <- agnes(normal.2 , method = "complete")
+average <- agnes(normal.2 , method = "average")
+print(single$ac)
+print(complete$ac)
+print(average$ac)
+```
+```{r}
+#We're opting for the complete one because it exhibits the highest agglomerative function.
+# Using hclust to make the clusters
+d <- dist(normal.2 , method = "euclidean")
+complete.2 <- hclust(d, method = "complete")
+plot(complete.2 , cex = 1.0)
+rect.hclust(complete.2 , k=5 , border=2:6) 
+```
+To ensure that the clustering algorithm isn't influenced by arbitrary variable units, we began by normalizing the data and assigning equal weights to all variables. This approach allows for a clearer understanding of the clusters.
+I employed three clustering methods—k-means, DBSCAN, and hierarchical clustering—to explore how data can be distributed across the platform. Using both the elbow and silhouette methods, k-means identified 5 clusters. I then applied the same number of clusters to hierarchical clustering for comparison and observed five clusters with 2 outliers. DBSCAN identified 3 clusters with 2 outliers, suggesting it may not be suitable for this dataset. Notably, both DBSCAN and hierarchical methods yielded the same outliers.
+Among the three methods, I believe k-means is the most suitable for clustering this dataset as it shows significant clustering patterns.
+
+
+
+
+Question 1 B-: Interpret the clusters with respect to the numerical variables used in forming the clusters. 
+
+```{r}
+fviz_cluster(kcluster , data = normal.2)
+```
+```{r}
+# Examining the data points to interpret the 5 clusters
+clus1 <- kable(normal.2[c(17,13),], align = "c")
+clus1
+```
+Cluster 1 :- High values in Market Cap, ROE, ROA, Asset Turnover, Rev Growth, Net Profit Margin. Moderate values in Beta, PE Ratio. Low value in Leverage.
+
+```{r}
+clus2 <- kable(normal.2[c(21,7,10,19,3,16,1,4),], align = "c")
+clus2
+```
+Cluster 2 -: High market capitalization variability, Varied beta values, Mixed PE ratios, mostly negative
+Diverse return on equity (ROE) and return on assets (ROA), Variable asset turnover and revenue growth, Mixed leverage levels, suggesting differing financial risk
+Varied net profit margins
+
+```{r}
+clus3 <- kable(normal.2[c(5,8,9,12,14,20),], align = "c")
+clus3
+```
+Cluster 3-: Varied market capitalization, Diverse beta values, ranging from negative to positive
+Mixed PE ratios, some negative and some positive, Variable return on equity (ROE) and return on assets (ROA)
+Mixed asset turnover and revenue growth rates, Variable leverage levels, suggesting differing financial risk, Mixed net profit margins
+
+```{r}
+clus4 <- kable(normal.2[c(11,15),], align = "c")
+clus4
+```
+Cluster 4-: High market capitalization, Mixed beta values, with some negative and others positive. Mixed PE ratios, both negative and positive, High return on equity (ROE) and return on assets (ROA), Varied asset turnover and revenue growth rates, Moderate to high leverage levels, Varied net profit margins
+
+
+```{r}
+clus5 <- kable(normal.2[c(2,6,18),], align = "c")
+clus5
+```
+Cluster 5-: Varied market capitalization, Diverse beta values, with some negative and others positive, Mixed PE ratios, including both negative and positive values
+Variable return on equity (ROE) and return on assets (ROA), Mixed asset turnover and revenue growth rates, Variable leverage levels, suggesting differing financial risk, Mixed net profit margins
+
+Question 1 C:- Is there a pattern in the clusters with respect to the numerical variables (10 to 12)? (those not used in forming the clusters)
+```{r}
+#Analyzing the pattern of the remaining variables
+clus_pattern <- df %>%
+select(c(1,12,13,14)) %>%
+mutate(Cluster = kcluster$clust)
+print(clus_pattern)
+```
+```{r}
+#Analyzing the data points to find a pattern
+ggplot(clus_pattern, mapping = aes(factor(Cluster), fill=Median_Recommendation)) + geom_bar(position = "dodge")
+```
+```{r}
+ggplot(clus_pattern, aes(x = factor(Cluster), fill = Location)) + 
+  geom_bar(position = 'dodge')
+```
+```{r}
+ggplot(clus_pattern, aes(x = factor(Cluster), fill = Exchange)) + 
+  geom_bar(position = 'dodge')
+```
+Cluster 1:
+
+Most firms are listed on NYSE and are traded from the US.
+The distribution of median recommendations shows moderate buy ratings.
+
+Cluster 2:
+
+All firms are listed on NYSE, with trading activity primarily from the UK, US and Switzerland.
+The median recommendation distribution suggests a combination of hold, moderate, buy and sell, and strong buy ratings.
+
+Cluster 3:
+
+Firms are listed on all the exchanges and traded from France, Ireland and the US.
+The majority of firms receive low hold, high moderate buy and sell ratings.
+
+Cluster 4:
+
+All firms are listed on NYSE, with trading activity from 2 locations such as UK, and the US. There is a predominance of hold ratings only. 
+
+Cluster 5:
+
+All firms are listed on NYSE and traded from Canada, Germany and the US.
+The median recommendation distribution indicates an high level of hold ratings and low moderate buy ratings.
+
+Interpretation:
+
+Clusters 1, 2, 4, and 5 predominantly consist of firms listed on NYSE, while Cluster 3 shows diversity with listings across all three exchanges.
+Geographic trading patterns vary across clusters, with some clusters exhibiting a concentration of trading activity in specific regions.
+The distribution of median recommendations provides insights into the perceived attractiveness of stocks within each cluster, ranging from hold to moderate buy recommendations.
+
+Overall, these patterns suggest distinct market behaviors and preferences across the five clusters, with variations in exchange listings, geographic trading origins, and analyst recommendations.
+
+Question 1 D:- Provide an appropriate name for each cluster using any or all of the variables in the dataset.
+
+Based on the characteristics observed in each cluster, appropriate names can be assigned:
+
+Cluster 1: "Steady Performers"
+
+This cluster comprises firms with consistent and stable growth indicators. The high values in Market Cap, ROE, ROA, Asset Turnover, Rev Growth, and Net Profit Margin suggest steady performance and strong financial health. Additionally, the moderate values in Beta and PE Ratio indicate a balanced risk-return profile. The low value in Leverage further reinforces the stability of these firms, indicating a conservative approach to financing.
+
+Cluster 2: "Financially Diverse"
+
+This cluster exhibits dynamic financial characteristics with significant variability across various metrics. The high market capitalization variability and mixed beta values suggest diverse market positions and risk exposures. The predominantly negative PE ratios and mixed net profit margins indicate fluctuating profitability levels. The variable asset turnover, revenue growth rates, and leverage levels reflect differing financial risk appetites and operational strategies among these firms.
+
+Cluster 3: "Balanced Diversity"
+
+This cluster represents a balanced mix of firms with diverse financial profiles. The varied market capitalization and beta values suggest a range of market positions and risk exposures. The mixed PE ratios and net profit margins indicate varying levels of profitability and financial performance. The variable return on equity and assets, along with mixed asset turnover and revenue growth rates, highlight the diversity in operational efficiency and growth strategies. The variable leverage levels further underscore the differing financial risk appetites within this cluster.
+
+Cluster 4: "Growth & Stability"
+
+This cluster comprises firms characterized by robust financial stability and strong market presence. The high market capitalization and mixed beta values suggest a blend of established market leaders and emerging players. The mixed PE ratios and net profit margins indicate varying profitability levels across firms. The high ROE and ROA signify efficient asset utilization and profitability. The varied asset turnover and revenue growth rates reflect diverse growth trajectories and operational efficiencies. The moderate to high leverage levels suggest a balanced approach to capital structure management.
+
+Cluster 5: "Market Challengers"
+
+This cluster represents firms with adaptive and resilient financial profiles, capable of navigating diverse market conditions. The varied market capitalization and beta values suggest adaptability to changing market dynamics. The mixed PE ratios and net profit margins indicate flexibility in managing profitability amidst market fluctuations. The variable return on equity and assets, along with mixed asset turnover and revenue growth rates, highlight agility in adapting to evolving business environments. The variable leverage levels underscore the ability to adjust financial structures to optimize performance and mitigate risk.
