@@ -1,0 +1,221 @@
+---
+title: "FML_Assign 5"
+author: "Nitin Marwah"
+date: "2024-04-07"
+output: html_document
+---
+
+```{r}
+library(tidyr)
+library(readr)
+library(knitr)
+library(dplyr)
+library(stats)
+library(dbscan)
+library(ISLR)
+library(caret)
+library(cluster)
+library(factoextra)
+library(tidyverse)
+Cereals <- read.csv("/Applications/Cereals.csv")
+summary (Cereals)
+head(Cereals)
+```
+```{r}
+#Scaling the dataset
+Scaled_Cereals <- Cereals
+Scaled_Cereals[ , c(4:16)] <- scale(Cereals[ , c(4:16)])
+#Eliminating the NA values from the data collection using Omit function
+Preprocessed_Cereal <- na.omit(Scaled_Cereals)
+head(Preprocessed_Cereal)
+```
+After pre-processing and scaling, the total number of observations was 74 instead of 77. Only three records had the value NA.
+
+Question 1-: Apply hierarchical clustering to the data using Euclidean distance to the normalized measure- ments. Use Agnes to compare the clustering from single linkage, complete linkage, average linkage, and Ward. Choose the best method.
+
+```{r}
+#Applying Dissimilarity matrix
+Cereal_Euclidean <- dist(Preprocessed_Cereal[ , c(4:16)], method = "euclidean")
+# Applying Single linkage method
+Single <- agnes(Cereal_Euclidean, method = "single")
+plot(Single,
+main = "Customer Cereal Ratings - AGNES Using Single Linkage Method",
+xlab = "Cereal",
+ylab = "Height",
+cex.axis = 1,
+cex = 0.50)
+```
+```{r}
+#Applying Complete linkage
+Complete <- agnes(Cereal_Euclidean, method = "complete")
+plot(Complete,
+main = "Customer Cereal Ratings - AGNES Using Complete Linkage Method", xlab = "Cereal",
+ylab = "Height",
+cex.axis = 1,
+cex = 0.50)
+```
+```{r}
+#Applying Average linking method
+Average <- agnes(Cereal_Euclidean, method = "average")
+plot(Average,
+main = "Customer Cereal Ratings - AGNES using Average Linkage Method", xlab = "Cereal",
+ylab = "Height",
+cex.axis = 1,
+cex = 0.50)
+```
+```{r}
+#Applying Ward linkage method
+Ward <- agnes(Cereal_Euclidean, method = "ward")
+plot(Ward,
+main = "Customer Cereal Ratings - AGNES using Ward Linkage Method", xlab = "Cereal",
+ylab = "Height",
+cex.axis = 1,
+cex = 0.55)
+```
+As the value approaches 1.0, the clustering structure becomes closer. Therefore, the approach with the value closest to 1.0 is chosen. Among the approaches, only Linkage scored 0.61, Total Linkage scored 0.84, Average connection scored 0.78, and Ward Approach scored 0.90. Based on the data, the Ward technique emerges as the most effective clustering strategy in this scenario.
+
+
+
+
+Question 2-: How many clusters would you choose?
+
+In this analysis, I am determining the optimal number of clusters using the elbow and silhouette methods.
+
+(A) Elbow Technique-:
+
+```{r}
+fviz_nbclust(Preprocessed_Cereal[ , c(4:16)], hcut, method = "wss", k.max = 25) + labs(title = "Optimal Number of Clusters using Elbow Method") + geom_vline(xintercept = 12, linetype = 2)
+```
+(B) Silhouette Technique-:
+
+```{r}
+fviz_nbclust(Preprocessed_Cereal[ , c(4:16)], hcut,
+method = "silhouette",
+k.max = 25) +
+labs(title = "Optimal Number of Clusters using Silhouette Method")
+```
+The outcomes of the elbow and silhouette methods suggest that 12 clusters would be the ideal number.
+
+```{r}
+#Plotting the ward hierarchical tree with 12 groups highlighted
+plot(Ward,
+     main = "AGNES - Ward Linkage Method using 12 Clusters Outlined",
+     xlab = "Cereal",
+     ylab = "Height",
+     cex.axis = 1,
+cex = 0.50,)
+rect.hclust(Ward, k = 12, border = 1:12)
+```
+Question 2-: Comment on the structure of the clusters and on their stability. Hint: To check stability,partition the data and see how well clusters formed based on one part apply to the other part. To do this: ● Cluster partition A ● Use the cluster centroids from A to assign each record in partition B (each record is assigned to the cluster with the closest centroid). ● Assess how consistent the cluster assignments are compared to the assignments based on all the data.
+
+```{r}
+# Partitioning data into 2 groups- A & B 
+set.seed(66)
+part.A <- Preprocessed_Cereal[1:55, 4:16]
+part.B <- Preprocessed_Cereal[56:74, 4:16]
+# Conducting hierarchical clustering with K=12
+sin.df <- agnes(scale(part.A), method = "single")
+comp.df <- agnes(scale(part.A), method = "complete")
+avg.df <- agnes(scale(part.A), method = "average")
+ward.df <- agnes(scale(part.A), method = "ward")
+ward.df.2 <- agnes(scale(part.B), method = "ward")
+
+cbind(single=sin.df$ac, complete=comp.df$ac, average=avg.df$ac, ward=ward.df$ac)
+```
+
+```{r}
+pltree(ward.df, cex = 0.6, hang = -1, main = "Dendogram of Agnes")
+rect.hclust(ward.df, k = 12, border = 2:7)
+```
+Creating 4 Centroids
+
+```{r}
+df.2 <- cutree(ward.df, k=12)
+df.3 <- cutree(ward.df.2,k=12)
+df_2 <- as.data.frame(cbind(df.3,part.B))
+```
+
+```{r}
+outcome.df <- as.data.frame(cbind(part.A, df.2))
+outcome.df[outcome.df$df.2==1,]
+
+```
+
+```{r}
+# Centroid A
+cent.A <- colMeans(outcome.df[outcome.df$df.2==1,])
+outcome.df[outcome.df$df.2==2,]
+```
+
+```{r}
+# Centroid B
+cent.B <- colMeans(outcome.df[outcome.df$df.2==2,])
+outcome.df[outcome.df$df.2==3,]
+```
+
+```{r}
+# Centroid C
+cent.C <- colMeans(outcome.df[outcome.df$df.2==3,])
+outcome.df[outcome.df$df.2==4,]
+```
+
+```{r}
+# Centroid D
+cent.D <- colMeans(outcome.df[outcome.df$df.2==4,])
+
+cent <- rbind(cent.A, cent.B, cent.C, cent.D)
+df.2 <- as.data.frame(rbind(cent[,-14], part.B))
+```
+
+Calculating the Distance
+
+```{r}
+Distance.A <- get_dist(df.2)
+Mat.A <- as.matrix(Distance.A)
+
+dataf <- data.frame(data=seq(1, nrow(part.B), 1), Clusters= rep(0, nrow(part.B)))
+for(i in 1:nrow(part.B))
+  {dataf[i,2] <- which.min(Mat.A[i+4, 1:4])}
+dataf
+```
+
+```{r}
+cbind(df_2$part.3, dataf$Clusters)
+```
+
+Finally, assessing cluster stability through comparison-:
+
+```{r}
+table(df_2$df.3==dataf$Clusters)
+```
+
+Findings-: Therefore, it exhibits high instability due to the limited number of "TRUE" values.
+
+
+
+Question 4-:The elementary public schools would like to choose a set of cereals to include in their daily cafeterias. Every day a different cereal is offered, but all cereals should support a healthy diet. For this goal, you are requested to find a cluster of “healthy cereals.” Should the data be normalized? If not, how should they be used in the cluster analysis?
+
+```{r}
+# Clustering "Healthy Cereals"
+Nutri_c <- Preprocessed_Cereal[,c("calories", "protein", "fat", "fiber", "carbo", "sugars", "potass", "vitamins")]
+# Normalizing already completed, hence no repeatation required. 
+# Applying Euclidean method
+range <- dist(Nutri_c, method = "euclidean")
+
+hc <- hclust(range, method = "ward.D2")
+```
+
+
+```{r}
+# With K=12, we are required to create 12 clusters for this dataset.
+Preprocessed_Cereal$cluster = cutree(hc, k = 12)
+# Selecting Numeric columns 
+num.data = Preprocessed_Cereal[, sapply(Preprocessed_Cereal, is.numeric)]
+# Creating cluster summary
+c_sum <- aggregate(. ~ cluster, data = num.data, FUN = mean)
+c_sum
+```
+
+Final Result-: Normalizing already completed, hence no repeatation required.
+
+After careful consideration of the dataset, it is evident that Cluster 1 emerges as the most suitable option for children due to several key factors. This cluster demonstrates higher levels of protein and fiber, which are essential for growth and digestive health. Moreover, it contains lower levels of fat and sugar, contributing to a healthier overall diet. Additionally, Cluster 1 exhibits higher potassium and vitamin content, further enhancing its nutritional value. Notably, it also boasts the highest overall rating among the clusters, indicating superior quality and desirability. Therefore, based on these factors, Cluster 1 stands out as the optimal choice for promoting children's health and well-being.
